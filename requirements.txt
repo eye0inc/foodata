@@ -1,7 +1,7 @@
 pandas==0.20.3
 keras==2.3.1
 tensorflow==1.13.2
-tensorflow-gpu==1.13.2
+tensorflow-gpu==1.15.2
 Pillow==7.0.0
 -e git+git@datahub.host:foodata/foodata_private.git@b8f8e6e475d26c894c9993e89b44196209f2323a#egg=foodata_private_data
 -e git+git@datahub.host:foodata/foodata_data.git@00613c283f89a6bf146253e62f8b035a2824fb6e#egg=foodata_training_data
