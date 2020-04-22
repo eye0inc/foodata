@@ -15,6 +15,9 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
+from tensorflow.python.client import device_lib
+print(device_lib.list_local_devices())
+
 ap = argparse.ArgumentParser()
 # ap.add_argument("-d", "--dataset", type=str, required=True,
 # 	help="path to input dataset of house images")
