@@ -25,7 +25,45 @@ ap.add_argument("-E", "--epochs", type=int, required=False, default=200,
 	help="number of epoches to train for")
 args = vars(ap.parse_args())
 
+INPUT_SHAPE = (224, 224, 3)
+INPUT_SIZE = INPUT_SHAPE[:2]
+
+print("INPUT_SHAPE = " + str(INPUT_SHAPE) + "INPUT_SIZE = " + str(INPUT_SIZE))
 # (train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
+
+def simple_model(input_shape):
+    
+    ret = models.Sequential()
+    ret.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape))
+    ret.add(layers.MaxPooling2D((2, 2)))
+    ret.add(layers.Conv2D(64, (3, 3), activation='relu'))
+    ret.add(layers.MaxPooling2D((2, 2)))
+    ret.add(layers.Conv2D(64, (3, 3), activation='relu'))
+
+    ret.add(layers.Flatten())
+    ret.add(layers.Dense(64, activation='relu'))
+    ret.add(layers.Dense(1))
+    return ret
+
+def mobilenetv2_model(input_shape):
+
+    base_model = tf.keras.applications.MobileNetV2(input_shape=input_shape,
+                                               include_top=False,
+                                               weights='imagenet')
+
+def vgg16_model(input_shape):
+
+    base_model = tf.keras.applications.VGG16(input_shape=input_shape,
+                                               include_top=False,
+                                               weights='imagenet')
+    base_model.trainable = False
+
+    regression_model = models.Sequential()
+    regression_model.add(layers.Flatten())
+    regression_model.add(layers.Dense(64, activation='relu'))
+    regression_model.add(layers.Dense(1))
+
+    return tf.keras.Sequential([base_model, regression_model])
 
 food_calorie_training_data = pd.read_csv("training_data/private/dev/nutrition_info.csv")
 food_calorie_validation_data = pd.read_csv("training_data/private/dev/nutrition_info-validate.csv") 
@@ -39,7 +77,7 @@ validation_datagen = ImageDataGenerator(rescale=1./255)
 food_training_generator = training_datagen.flow_from_dataframe(
     dataframe=food_calorie_training_data,
     directory='training_data/private/data/', 
-    target_size=(32, 32),
+    target_size=INPUT_SIZE,
     batch_size=32,
     class_mode='raw',
     x_col='filename',
@@ -48,38 +86,40 @@ food_training_generator = training_datagen.flow_from_dataframe(
 food_validation_generator = validation_datagen.flow_from_dataframe(
     dataframe=food_calorie_validation_data,
     directory='training_data/private/data/', 
-    target_size=(32, 32),
+    target_size=INPUT_SIZE,
     batch_size=32,
     class_mode='raw',
     x_col='filename',
     y_col='calories')
 
-model = models.Sequential()
-model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)))
-model.add(layers.MaxPooling2D((2, 2)))
-model.add(layers.Conv2D(64, (3, 3), activation='relu'))
-model.add(layers.MaxPooling2D((2, 2)))
-model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+base_model = simple_model(INPUT_SHAPE)
+base_model = mobilenetv2_model(INPUT_SHAPE)
+base_model = vgg16_model(INPUT_SHAPE)
+
+regression_model = models.Sequential()
+regression_model.add(layers.Flatten())
+regression_model.add(layers.Dense(64, activation='relu'))
+regression_model.add(layers.Dense(1))
+
+model = tf.keras.Sequential([base_model, regression_model])
 
 model.summary()
 
-model.add(layers.Flatten())
-model.add(layers.Dense(64, activation='relu'))
-model.add(layers.Dense(1))
 
-model.summary()
 
 # with tf.Session() as sess:
 #   print(sess.list_devices())
-  
-model.compile(optimizer='adam',
-              loss='mse',
-              metrics=['accuracy'])
+
+# base_learning_rate = 0.0001
+
+model.compile(optimizer='sgd',
+              loss='mae',
+              metrics=['mse', 'mae', 'mape'])
 
 
 model.fit_generator(food_training_generator, steps_per_epoch=1, epochs=args['epochs'],
                     validation_data=food_validation_generator)
 
-test_loss, test_acc = model.evaluate(food_validation_generator, verbose=2)
+training_results = model.evaluate(food_validation_generator, verbose=2)
 
-print(test_acc)
+print(str(training_results))
